@@ -8,6 +8,7 @@
 #import "MSHttpIngestionPrivate.h"
 #import "MSLoggerInternal.h"
 #import "MSUtility+StringFormatting.h"
+#import "MSLogContainer.h"
 
 // URL components' name within a partial URL.
 static NSString *const kMSPartialURLComponentsName[] = {@"scheme", @"user", @"password", @"host", @"port", @"path"};
@@ -169,6 +170,12 @@ static NSString *const kMSPartialURLComponentsName[] = {@"scheme", @"user", @"pa
   }
 }
 
+- (NSDictionary *)oktt_overridenAppSecretHeaders:(NSDictionary *)headers appSecret:(NSString *)appSecret {
+  NSMutableDictionary *httpHeaders = [headers mutableCopy];
+  [httpHeaders setValue:appSecret forKey:kMSHeaderAppSecretKey];
+  return httpHeaders;
+}
+
 - (void)sendAsync:(NSObject *)data
                  eTag:(nullable NSString *)eTag
                callId:(NSString *)callId
@@ -177,11 +184,57 @@ static NSString *const kMSPartialURLComponentsName[] = {@"scheme", @"user", @"pa
     if (!self.enabled) {
       return;
     }
-    NSDictionary *httpHeaders = [self getHeadersWithData:data eTag:eTag];
-    NSData *payload = [self getPayloadWithData:data];
+    
+    NSObject *mainPayloadData = data;
+    NSDictionary *mainPayloadHttpHeaders = [self getHeadersWithData:mainPayloadData eTag:eTag];
+    
+    if ([mainPayloadData isKindOfClass:MSLogContainer.class]) {
+      MSLogContainer *container = (MSLogContainer *)mainPayloadData;
+      NSMutableArray <id <MSLog> > *assertLogs = [NSMutableArray array];
+      NSMutableArray <id <MSLog> > *regularLogs = [NSMutableArray array];
+
+      for (id<MSLog> log in container.logs) {
+        if (log.assertAppSecret != nil) {
+          [assertLogs addObject:log];
+        } else {
+          [regularLogs addObject:log];
+        }
+      }
+      
+      if (assertLogs.count > 0) {
+        NSString *assertAppSecret = assertLogs.firstObject.assertAppSecret;
+        
+        if (regularLogs.count == 0) {
+          //just override app secret if no regular logs in batch
+          mainPayloadHttpHeaders = [self oktt_overridenAppSecretHeaders:mainPayloadHttpHeaders appSecret:assertAppSecret];
+        } else {
+          //separate app secrets for regular logs
+          mainPayloadData = [[MSLogContainer alloc] initWithBatchId:container.batchId
+                                                           andLogs:regularLogs.copy];
+          //and assert logs
+          MSLogContainer *assertContainer = [[MSLogContainer alloc] initWithBatchId:MS_UUID_STRING
+                                                                            andLogs:assertLogs.copy];
+          
+          NSDictionary *assertHttpHeaders = [self getHeadersWithData:assertContainer eTag:nil];
+          assertHttpHeaders = [self oktt_overridenAppSecretHeaders:assertHttpHeaders appSecret:assertAppSecret];
+          NSData *assertPayload = [self getPayloadWithData:assertContainer];
+          [self.httpClient sendAsync:self.sendURL
+                              method:[self getHttpMethod]
+                             headers:assertHttpHeaders
+                                data:assertPayload
+                      retryIntervals:self.callsRetryIntervals
+                  compressionEnabled:YES
+                   completionHandler:^(NSData *_Nullable responseBody, NSHTTPURLResponse *_Nullable response, NSError *_Nullable error) {
+                     [self printResponse:response body:responseBody error:error];
+                   }];
+        }
+      }
+    }
+    
+    NSData *payload = [self getPayloadWithData:mainPayloadData];
     [self.httpClient sendAsync:self.sendURL
                         method:[self getHttpMethod]
-                       headers:httpHeaders
+                       headers:mainPayloadHttpHeaders
                           data:payload
                 retryIntervals:self.callsRetryIntervals
             compressionEnabled:YES
