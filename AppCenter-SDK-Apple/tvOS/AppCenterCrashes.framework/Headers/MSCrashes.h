@@ -64,6 +64,7 @@ typedef NS_ENUM(NSUInteger, MSUserConfirmation) {
 };
 
 @protocol MSCrashesDelegate;
+@protocol MSOKTTAssertReportsDelegate;
 
 @interface MSCrashes : MSServiceAbstract
 
@@ -177,6 +178,10 @@ typedef NS_ENUM(NSUInteger, MSUserConfirmation) {
 + (void)notifyWithUserConfirmation:(MSUserConfirmation)userConfirmation;
 
 
+// Assert reporting:
+
+// delegate only for assert reports logs
++ (void)setOKTTAssertReportDelegate:(_Nullable id<MSOKTTAssertReportsDelegate>)delegate;
 
 // will be grouped by single selector
 + (void)generateTestAssertReport;

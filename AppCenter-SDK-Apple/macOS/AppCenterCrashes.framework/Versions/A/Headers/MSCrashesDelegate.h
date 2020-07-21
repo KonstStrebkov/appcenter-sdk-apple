@@ -62,4 +62,17 @@
  */
 - (NSArray<MSErrorAttachmentLog *> *)attachmentsWithCrashes:(MSCrashes *)crashes forErrorReport:(MSErrorReport *)errorReport;
 
+
+@end
+
+
+@protocol MSOKTTAssertReportsDelegate <NSObject>
+
+@optional
+- (BOOL)crashes:(MSCrashes *)crashes shouldProcessOKTTAssertReport:(MSErrorReport *)errorReport;
+- (void)crashes:(MSCrashes *)crashes willSendOKTTAssertReport:(MSErrorReport *)errorReport;
+- (void)crashes:(MSCrashes *)crashes didSucceedSendingOKTTAssertReport:(MSErrorReport *)errorReport;
+- (void)crashes:(MSCrashes *)crashes didFailSendingOKTTAssertReport:(MSErrorReport *)errorReport withError:(NSError *)error;
+- (NSArray<MSErrorAttachmentLog *> *)attachmentsWithCrashes:(MSCrashes *)crashes forOKTTAssertReport:(MSErrorReport *)errorReport;
+
 @end
