@@ -63,6 +63,9 @@ static NSString *const kMSLogBufferFileExtension = @"mscrasheslogbuffer";
 
 static NSString *const kMSTargetTokenFileExtension = @"targettoken";
 
+
+static NSString *const kOKTTAssertFilePrefix = @"OKTTAssert";
+
 static unsigned int kMaxAttachmentSize = 7 * 1024 * 1024;
 
 /**
@@ -193,6 +196,8 @@ __attribute__((noreturn)) static void uncaught_cxx_exception_handler(const MSCra
  */
 @property dispatch_source_t memoryPressureSource;
 
+@property (nonatomic, nullable) NSString *assertAppSecret;
+
 @end
 
 @implementation MSCrashes
@@ -269,6 +274,30 @@ __attribute__((noreturn)) static void uncaught_cxx_exception_handler(const MSCra
 
 + (void)setDelegate:(_Nullable id<MSCrashesDelegate>)delegate {
   [[MSCrashes sharedInstance] setDelegate:delegate];
+}
+
++ (void)generateTestAssertReport {
+    NSData *report = [[self liveReportGenerator] generateLiveReport];
+    [self sendAssertLiveReport:report];
+}
+
++ (void)overrideAppSecretForAsserts:(NSString *)assertAppSecret {
+    [MSCrashes sharedInstance].assertAppSecret = assertAppSecret;
+}
+
++ (void)sendAssertLiveReport:(NSData *)assertReportData {
+    [[MSCrashes sharedInstance] sendAssertReport:assertReportData];
+}
+
++ (id <OKTTMSLiveReportGenerator>)liveReportGenerator {
+    PLCrashReporter *crashReporter = [[MSCrashes sharedInstance] plCrashReporter];
+    if ([crashReporter respondsToSelector:@selector(generateLiveReport)]) {
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wold-style-cast"
+        return (id <OKTTMSLiveReportGenerator>)crashReporter;
+#pragma clang diagnostic pop
+    }
+    return nil;
 }
 
 #pragma mark - Service initialization
@@ -1237,8 +1266,18 @@ __attribute__((noreturn)) static void uncaught_cxx_exception_handler(const MSCra
   [self handleUserConfirmation:userConfirmation];
 }
 
+- (void)sendAssertReport:(NSData *)assertReportData {
+    if (assertReportData == nil || !self.isEnabled) {
+        return;
+    }
+    
+    NSString *cacheFilename = [NSString stringWithFormat:@"%@-%@", kOKTTAssertFilePrefix, MS_UUID_STRING];
+    NSString *filePath = [NSString stringWithFormat:@"%@/%@", self.crashesPathComponent, cacheFilename];
+    [MSUtility createFileAtPathComponent:filePath withData:assertReportData atomically:YES forceOverwrite:NO];
+}
+
 - (void)handleUserConfirmation:(MSUserConfirmation)userConfirmation {
-  NSArray<MSErrorAttachmentLog *> *attachments;
+  NSArray<MSErrorAttachmentLog *> *attachments = nil;
 
   // Check for user confirmation.
   if (userConfirmation == MSUserConfirmationDontSend) {
@@ -1284,6 +1323,14 @@ __attribute__((noreturn)) static void uncaught_cxx_exception_handler(const MSCra
 
     // Second, get correlated user Id.
     log.userId = [[MSUserIdContext sharedInstance] userIdAt:log.timestamp];
+      
+    if ([fileURL.lastPathComponent hasPrefix:kOKTTAssertFilePrefix]) {
+      log.assertAppSecret = self.assertAppSecret;
+      
+      for (MSErrorAttachmentLog *attachment in attachments) {
+        attachment.assertAppSecret = self.assertAppSecret;
+      }
+    }
 
     // Then, enqueue crash log.
     [self.channelUnit enqueueItem:log flags:MSFlagsCritical];

@@ -68,6 +68,10 @@
  */
 - (NSSet *)transmissionTargetTokens;
 
+
+// overrides app secret to send crash if set
+@property (nonatomic, copy) NSString *assertAppSecret;
+
 @end
 
 #endif

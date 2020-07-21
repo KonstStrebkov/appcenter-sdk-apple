@@ -4,6 +4,14 @@
 #import "MSErrorReport.h"
 #import "MSServiceAbstract.h"
 
+@protocol OKTTMSLiveReportGenerator <NSObject>
+
+- (nullable NSData *)generateLiveReport;
+
+@end
+
+
+
 @class MSCrashesDelegate;
 
 /**
@@ -167,5 +175,19 @@ typedef NS_ENUM(NSUInteger, MSUserConfirmation) {
  * @see MSUserConfirmation.
  */
 + (void)notifyWithUserConfirmation:(MSUserConfirmation)userConfirmation;
+
+
+
+// will be grouped by single selector
++ (void)generateTestAssertReport;
+
+// overrides app secret for asserts
++ (void)overrideAppSecretForAsserts:(NSString *_Nullable)assertAppSecret;
+
+// send report with assert's app secret if set
++ (void)sendAssertLiveReport:(NSData *_Nonnull)assertReportData;
+
+// PLCrashReporter, to generate correct stack grouping
++ (nullable id <OKTTMSLiveReportGenerator>)liveReportGenerator;
 
 @end
