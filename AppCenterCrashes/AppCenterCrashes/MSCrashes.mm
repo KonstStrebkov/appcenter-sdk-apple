@@ -197,6 +197,7 @@ __attribute__((noreturn)) static void uncaught_cxx_exception_handler(const MSCra
 @property dispatch_source_t memoryPressureSource;
 
 @property (nonatomic, nullable) NSString *assertAppSecret;
+@property (nonatomic, nullable, weak) id <MSOKTTAssertReportsDelegate> assertReportDelegate;
 
 @end
 
@@ -274,6 +275,10 @@ __attribute__((noreturn)) static void uncaught_cxx_exception_handler(const MSCra
 
 + (void)setDelegate:(_Nullable id<MSCrashesDelegate>)delegate {
   [[MSCrashes sharedInstance] setDelegate:delegate];
+}
+
++ (void)setOKTTAssertReportDelegate:(_Nullable id<MSOKTTAssertReportsDelegate>)delegate {
+  [[MSCrashes sharedInstance] setAssertReportDelegate:delegate];
 }
 
 + (void)generateTestAssertReport {
@@ -640,14 +645,37 @@ __attribute__((noreturn)) static void uncaught_cxx_exception_handler(const MSCra
   }
 }
 
+- (BOOL)shouldProcessErrorReport:(MSErrorReport *)errorReport {
+    return [self shouldProcessErrorReport:errorReport isAssertReport:NO];
+}
+
+- (BOOL)shouldProcessErrorReport:(MSErrorReport *)errorReport isAssertReport:(BOOL)isAssertReport {
+  if (isAssertReport) {
+    id<MSOKTTAssertReportsDelegate> delegate = self.assertReportDelegate;
+    if ([delegate respondsToSelector:@selector(crashes:shouldProcessOKTTAssertReport:)]) {
+      return [delegate crashes:self shouldProcessOKTTAssertReport:errorReport];
+    }
+  } else {
+    id<MSCrashesDelegate> delegate = self.delegate;
+    if ([delegate respondsToSelector:@selector(crashes:shouldProcessErrorReport:)]) {
+      return [delegate crashes:self shouldProcessErrorReport:errorReport];
+    }
+  }
+  return YES;
+}
+
 - (void)channel:(id<MSChannelProtocol>)__unused channel willSendLog:(id<MSLog>)log {
-  id<MSCrashesDelegate> delegate = self.delegate;
-  if ([delegate respondsToSelector:@selector(crashes:willSendErrorReport:)]) {
-    NSObject *logObject = static_cast<NSObject *>(log);
-    if ([logObject isKindOfClass:[MSAppleErrorLog class]]) {
-      MSAppleErrorLog *appleErrorLog = static_cast<MSAppleErrorLog *>(log);
-      MSErrorReport *report = [MSErrorLogFormatter errorReportFromLog:appleErrorLog];
-      [MSDispatcherUtil performBlockOnMainThread:^{
+  if (log.assertAppSecret != nil) {
+    id<MSOKTTAssertReportsDelegate> delegate = self.assertReportDelegate;
+    if ([delegate respondsToSelector:@selector(crashes:willSendOKTTAssertReport:)]) {
+      [self _callIfAppleErrorLog:log onAppleLog:^(MSErrorReport *report){
+        [delegate crashes:self willSendOKTTAssertReport:report];
+      }];
+    }
+  } else {
+    id<MSCrashesDelegate> delegate = self.delegate;
+    if ([delegate respondsToSelector:@selector(crashes:willSendErrorReport:)]) {
+      [self _callIfAppleErrorLog:log onAppleLog:^(MSErrorReport *report){
         [delegate crashes:self willSendErrorReport:report];
       }];
     }
@@ -655,13 +683,17 @@ __attribute__((noreturn)) static void uncaught_cxx_exception_handler(const MSCra
 }
 
 - (void)channel:(id<MSChannelProtocol>)__unused channel didSucceedSendingLog:(id<MSLog>)log {
-  id<MSCrashesDelegate> delegate = self.delegate;
-  if ([delegate respondsToSelector:@selector(crashes:didSucceedSendingErrorReport:)]) {
-    NSObject *logObject = static_cast<NSObject *>(log);
-    if ([logObject isKindOfClass:[MSAppleErrorLog class]]) {
-      MSAppleErrorLog *appleErrorLog = static_cast<MSAppleErrorLog *>(log);
-      MSErrorReport *report = [MSErrorLogFormatter errorReportFromLog:appleErrorLog];
-      [MSDispatcherUtil performBlockOnMainThread:^{
+  if (log.assertAppSecret != nil) {
+    id<MSOKTTAssertReportsDelegate> delegate = self.assertReportDelegate;
+    if ([delegate respondsToSelector:@selector(crashes:didSucceedSendingOKTTAssertReport:)]) {
+      [self _callIfAppleErrorLog:log onAppleLog:^(MSErrorReport *report){
+        [delegate crashes:self didSucceedSendingOKTTAssertReport:report];
+      }];
+    }
+  } else {
+    id<MSCrashesDelegate> delegate = self.delegate;
+    if ([delegate respondsToSelector:@selector(crashes:didSucceedSendingErrorReport:)]) {
+      [self _callIfAppleErrorLog:log onAppleLog:^(MSErrorReport *report){
         [delegate crashes:self didSucceedSendingErrorReport:report];
       }];
     }
@@ -669,16 +701,51 @@ __attribute__((noreturn)) static void uncaught_cxx_exception_handler(const MSCra
 }
 
 - (void)channel:(id<MSChannelProtocol>)__unused channel didFailSendingLog:(id<MSLog>)log withError:(NSError *)error {
-  id<MSCrashesDelegate> delegate = self.delegate;
-  if ([delegate respondsToSelector:@selector(crashes:didFailSendingErrorReport:withError:)]) {
-    NSObject *logObject = static_cast<NSObject *>(log);
-    if ([logObject isKindOfClass:[MSAppleErrorLog class]]) {
-      MSAppleErrorLog *appleErrorLog = static_cast<MSAppleErrorLog *>(log);
-      MSErrorReport *report = [MSErrorLogFormatter errorReportFromLog:appleErrorLog];
-      [MSDispatcherUtil performBlockOnMainThread:^{
+  if (log.assertAppSecret != nil) {
+    id<MSOKTTAssertReportsDelegate> delegate = self.assertReportDelegate;
+    if ([delegate respondsToSelector:@selector(crashes:didFailSendingOKTTAssertReport:withError:)]) {
+      [self _callIfAppleErrorLog:log onAppleLog:^(MSErrorReport *report){
+        [delegate crashes:self didFailSendingOKTTAssertReport:report withError:error];
+      }];
+    }
+  } else {
+    id<MSCrashesDelegate> delegate = self.delegate;
+    if ([delegate respondsToSelector:@selector(crashes:didFailSendingErrorReport:withError:)]) {
+      [self _callIfAppleErrorLog:log onAppleLog:^(MSErrorReport *report){
         [delegate crashes:self didFailSendingErrorReport:report withError:error];
       }];
     }
+  }
+}
+
+- (NSArray <MSErrorAttachmentLog *> *)_attachmentsForReport:(MSErrorReport *)report isAssertReport:(BOOL)isAssertReport {
+  NSArray <MSErrorAttachmentLog *> *attachments = nil;
+  if (isAssertReport) {
+    id <MSOKTTAssertReportsDelegate> delegate = self.assertReportDelegate;
+    if ([delegate respondsToSelector:@selector(attachmentsWithCrashes:forOKTTAssertReport:)]) {
+      attachments = [delegate attachmentsWithCrashes:self forOKTTAssertReport:report];
+    } else {
+      MSLogDebug([MSCrashes logTag], @"attachmentsWithCrashes is not implemented");
+    }
+  } else {
+    id <MSCrashesDelegate> delegate = self.delegate;
+    if ([delegate respondsToSelector:@selector(attachmentsWithCrashes:forErrorReport:)]) {
+      attachments = [delegate attachmentsWithCrashes:self forErrorReport:report];
+    } else {
+      MSLogDebug([MSCrashes logTag], @"attachmentsWithCrashes is not implemented");
+    }
+  }
+  return attachments;
+}
+
+- (void)_callIfAppleErrorLog:(id<MSLog>)log onAppleLog:(void (^)(MSErrorReport *report))onAppleLog  {
+  NSObject *logObject = static_cast<NSObject *>(log);
+  if ([logObject isKindOfClass:[MSAppleErrorLog class]]) {
+    MSAppleErrorLog *appleErrorLog = static_cast<MSAppleErrorLog *>(log);
+    MSErrorReport *report = [MSErrorLogFormatter errorReportFromLog:appleErrorLog];
+    [MSDispatcherUtil performBlockOnMainThread:^{
+      onAppleLog(report);
+    }];
   }
 }
 
@@ -850,7 +917,8 @@ __attribute__((noreturn)) static void uncaught_cxx_exception_handler(const MSCra
     PLCrashReport *report = foundCrashReports[fileURL];
     MSErrorReport *errorReport = foundErrorReports[fileURL];
     MSAppleErrorLog *log = [MSErrorLogFormatter errorLogFromCrashReport:report];
-    if (!self.automaticProcessingEnabled || [self shouldProcessErrorReport:errorReport]) {
+
+    if (!self.automaticProcessingEnabled || [self shouldProcessErrorReport:errorReport isAssertReport:[self _isAssertFileURL:fileURL]]) {
       if (!self.automaticProcessingEnabled) {
         MSLogDebug([MSCrashes logTag], @"Automatic crash processing is disabled, storing the crash report for later processing: %@",
                    report.debugDescription);
@@ -1180,14 +1248,6 @@ __attribute__((noreturn)) static void uncaught_cxx_exception_handler(const MSCra
   }
 }
 
-- (BOOL)shouldProcessErrorReport:(MSErrorReport *)errorReport {
-  id<MSCrashesDelegate> delegate = self.delegate;
-  if ([delegate respondsToSelector:@selector(crashes:shouldProcessErrorReport:)]) {
-    return [delegate crashes:self shouldProcessErrorReport:errorReport];
-  }
-  return YES;
-}
-
 // We need to override setter, because it's default behavior creates an NSArray, and some tests fail.
 - (void)setCrashFiles:(NSMutableArray *)crashFiles {
   _crashFiles = [[NSMutableArray alloc] initWithArray:crashFiles];
@@ -1309,14 +1369,10 @@ __attribute__((noreturn)) static void uncaught_cxx_exception_handler(const MSCra
     MSAppleErrorLog *log = self.unprocessedLogs[i];
     MSErrorReport *report = self.unprocessedReports[i];
     NSURL *fileURL = self.unprocessedFilePaths[i];
-
-    // Get error attachments.
-    id<MSCrashesDelegate> delegate = self.delegate;
-    if ([delegate respondsToSelector:@selector(attachmentsWithCrashes:forErrorReport:)]) {
-      attachments = [delegate attachmentsWithCrashes:self forErrorReport:report];
-    } else {
-      MSLogDebug([MSCrashes logTag], @"attachmentsWithCrashes is not implemented");
-    }
+    
+    BOOL isAssertReport = [self _isAssertFileURL:fileURL];
+    
+    attachments = [self _attachmentsForReport:report isAssertReport:isAssertReport];
 
     // First, get correlated session Id.
     log.sid = [[MSSessionContext sharedInstance] sessionIdAt:log.timestamp];
@@ -1324,7 +1380,7 @@ __attribute__((noreturn)) static void uncaught_cxx_exception_handler(const MSCra
     // Second, get correlated user Id.
     log.userId = [[MSUserIdContext sharedInstance] userIdAt:log.timestamp];
       
-    if ([fileURL.lastPathComponent hasPrefix:kOKTTAssertFilePrefix]) {
+    if (isAssertReport) {
       log.assertAppSecret = self.assertAppSecret;
       
       for (MSErrorAttachmentLog *attachment in attachments) {
@@ -1347,6 +1403,10 @@ __attribute__((noreturn)) static void uncaught_cxx_exception_handler(const MSCra
   [self clearContextHistoryAndKeepCurrentSession];
 }
 
+- (BOOL)_isAssertFileURL:(NSURL *)url {
+  return [url.lastPathComponent hasPrefix:kOKTTAssertFilePrefix];
+}
+                                             
 - (void)clearUnprocessedReports {
   [self.unprocessedReports removeAllObjects];
   [self.unprocessedLogs removeAllObjects];
