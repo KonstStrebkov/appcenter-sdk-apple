@@ -1,6 +1,6 @@
 Pod::Spec.new do |s|
   s.name              = 'AppCenter'
-  s.version           = '3.3.1'
+  s.version           = '3.3.1-tt'
 
   s.summary           = 'Visual Studio App Center is your continuous integration, delivery and learning solution for iOS and macOS apps.'
   s.description       = <<-DESC
@@ -33,7 +33,7 @@ Pod::Spec.new do |s|
   s.ios.deployment_target = '9.0'
   s.osx.deployment_target = '10.9'
   s.tvos.deployment_target = '11.0'
-  s.source = { :http => "https://github.com/microsoft/appcenter-sdk-apple/releases/download/#{s.version}/AppCenter-SDK-Apple-#{s.version}.zip" }
+  s.source = { :path => => './ttOutput' }
 
   s.preserve_path = 'AppCenter-SDK-Apple/README.md'
 
