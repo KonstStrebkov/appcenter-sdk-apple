@@ -296,7 +296,8 @@ __attribute__((noreturn)) static void uncaught_cxx_exception_handler(const MSCra
 
 + (id <OKTTMSLiveReportGenerator>)liveReportGenerator {
     PLCrashReporter *crashReporter = [[MSCrashes sharedInstance] plCrashReporter];
-    if ([crashReporter respondsToSelector:@selector(generateLiveReport)]) {
+    if ([crashReporter respondsToSelector:@selector(generateLiveReport)] &&
+        [crashReporter respondsToSelector:@selector(generateLiveReportWithException:)]) {
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wold-style-cast"
         return (id <OKTTMSLiveReportGenerator>)crashReporter;

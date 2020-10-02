@@ -7,6 +7,7 @@
 @protocol OKTTMSLiveReportGenerator <NSObject>
 
 - (nullable NSData *)generateLiveReport;
+- (nullable NSData *)generateLiveReportWithException:(NSException *_Nonnull)exception;
 
 @end
 
