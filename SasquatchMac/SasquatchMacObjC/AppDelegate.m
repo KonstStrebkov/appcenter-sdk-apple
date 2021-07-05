@@ -8,7 +8,6 @@
 @import AppCenter;
 @import AppCenterAnalytics;
 @import AppCenterCrashes;
-@import AppCenterPush;
 
 @interface AppDelegate ()
 
@@ -22,7 +21,7 @@ enum StartupMode { appCenter, oneCollector, both, none, skip };
 @implementation AppDelegate
 
 - (void)applicationDidFinishLaunching:(NSNotification *)notification {
-  [MSAppCenter setLogLevel:MSLogLevelVerbose];
+  [MSACAppCenter setLogLevel:MSACLogLevelVerbose];
 
   // Setup location manager.
   self.locationManager = [[CLLocationManager alloc] init];
@@ -32,57 +31,56 @@ enum StartupMode { appCenter, oneCollector, both, none, skip };
   // Set custom log URL.
   NSString *logUrl = [[NSUserDefaults standardUserDefaults] objectForKey:kMSLogUrl];
   if (logUrl) {
-    [MSAppCenter setLogUrl:logUrl];
+    [MSACAppCenter setLogUrl:logUrl];
   }
 
   // Customize services.
   [self setupCrashes];
-  [self setupPush];
 
   // Set max storage size.
   NSNumber *storageMaxSize = [[NSUserDefaults standardUserDefaults] objectForKey:kMSStorageMaxSizeKey];
   if (storageMaxSize != nil) {
-    [MSAppCenter setMaxStorageSize:storageMaxSize.integerValue
-                 completionHandler:^(BOOL success) {
-                   dispatch_async(dispatch_get_main_queue(), ^{
-                     if (success) {
-                       long realStorageSize = (long)(ceil([storageMaxSize doubleValue] / kMSStoragePageSize) * kMSStoragePageSize);
-                       [[NSUserDefaults standardUserDefaults] setObject:[NSNumber numberWithLong:realStorageSize]
-                                                                 forKey:kMSStorageMaxSizeKey];
-                     } else {
+    [MSACAppCenter setMaxStorageSize:storageMaxSize.integerValue
+                   completionHandler:^(BOOL success) {
+                     dispatch_async(dispatch_get_main_queue(), ^{
+                       if (success) {
+                         long realStorageSize = (long)(ceil([storageMaxSize doubleValue] / kMSStoragePageSize) * kMSStoragePageSize);
+                         [[NSUserDefaults standardUserDefaults] setObject:[NSNumber numberWithLong:realStorageSize]
+                                                                   forKey:kMSStorageMaxSizeKey];
+                       } else {
 
-                       // Remove invalid value.
-                       [[NSUserDefaults standardUserDefaults] removeObjectForKey:kMSStorageMaxSizeKey];
-                     }
-                   });
-                 }];
+                         // Remove invalid value.
+                         [[NSUserDefaults standardUserDefaults] removeObjectForKey:kMSStorageMaxSizeKey];
+                       }
+                     });
+                   }];
   }
 
   // Start AppCenter.
-  NSArray<Class> *services = @ [[MSAnalytics class], [MSCrashes class], [MSPush class]];
+  NSArray<Class> *services = @[ [MSACAnalytics class], [MSACCrashes class] ];
   NSInteger startTarget = [[NSUserDefaults standardUserDefaults] integerForKey:kMSStartTargetKey];
   NSString *appSecret = [[NSUserDefaults standardUserDefaults] objectForKey:kMSAppSecret] ?: kMSObjcAppSecret;
   switch (startTarget) {
   case appCenter:
-    [MSAppCenter start:appSecret withServices:services];
+    [MSACAppCenter start:appSecret withServices:services];
     break;
   case oneCollector:
-    [MSAppCenter start:[NSString stringWithFormat:@"target=%@", kMSObjCTargetToken] withServices:services];
+    [MSACAppCenter start:[NSString stringWithFormat:@"target=%@", kMSObjCTargetToken] withServices:services];
     break;
   case both:
-    [MSAppCenter start:[NSString stringWithFormat:@"appsecret=%@;target=%@", appSecret, kMSObjCTargetToken] withServices:services];
+    [MSACAppCenter start:[NSString stringWithFormat:@"appsecret=%@;target=%@", appSecret, kMSObjCTargetToken] withServices:services];
     break;
   case none:
-    [MSAppCenter startWithServices:services];
+    [MSACAppCenter startWithServices:services];
     break;
   }
 
   // Set user id.
   NSString *userId = [[NSUserDefaults standardUserDefaults] objectForKey:kMSUserIdKey];
   if (userId) {
-    [MSAppCenter setUserId:userId];
+    [MSACAppCenter setUserId:userId];
   }
-    
+
   [AppCenterProvider shared].appCenter = [[AppCenterDelegateObjC alloc] init];
   [self initUI];
   [self overrideCountryCode];
@@ -110,10 +108,10 @@ enum StartupMode { appCenter, oneCollector, both, none, skip };
 }
 
 - (void)setupCrashes {
-  if ([MSCrashes hasCrashedInLastSession]) {
-    MSErrorReport *errorReport = [MSCrashes lastSessionCrashReport];
+  if ([MSACCrashes hasCrashedInLastSession]) {
+    MSACErrorReport *errorReport = [MSACCrashes lastSessionCrashReport];
     NSLog(@"%@ We crashed with Signal: %@", kMSLogTag, errorReport.signal);
-    MSDevice *device = [errorReport device];
+    MSACDevice *device = [errorReport device];
     NSString *osVersion = [device osVersion];
     NSString *appVersion = [device appVersion];
     NSString *appBuild = [device appBuild];
@@ -122,70 +120,68 @@ enum StartupMode { appCenter, oneCollector, both, none, skip };
     NSLog(@"%@ App Build is: %@", kMSLogTag, appBuild);
   }
 
-  [MSCrashes setDelegate:self];
-  [MSCrashes setUserConfirmationHandler:(^(NSArray<MSErrorReport *> *errorReports) {
-               // Use MSAlertViewController to show a dialog to the user where they can choose if they want to provide a crash report.
-               NSAlert *alert = [[NSAlert alloc] init];
-               [alert setMessageText:NSLocalizedString(@"Sorry about that!", nil)];
-               [alert setInformativeText:NSLocalizedString(@"Do you want to send an anonymous crash "
-                                         @"report so we can fix the issue?", nil)];
-               [alert addButtonWithTitle:NSLocalizedString(@"Always send", nil)];
-               [alert addButtonWithTitle:NSLocalizedString(@"Send", nil)];
-               [alert addButtonWithTitle:NSLocalizedString(@"Don't send", nil)];
-               [alert setAlertStyle:NSWarningAlertStyle];
+  [MSACCrashes setDelegate:self];
+  [MSACCrashes setUserConfirmationHandler:(^(NSArray<MSACErrorReport *> *errorReports) {
+                 // Use MSAlertViewController to show a dialog to the user where they can choose if they want to provide a crash report.
+                 NSAlert *alert = [[NSAlert alloc] init];
+                 [alert setMessageText:NSLocalizedString(@"Sorry about that!", nil)];
+                 [alert setInformativeText:NSLocalizedString(@"Do you want to send an anonymous crash "
+                                                             @"report so we can fix the issue?",
+                                                             nil)];
+                 [alert addButtonWithTitle:NSLocalizedString(@"Always send", nil)];
+                 [alert addButtonWithTitle:NSLocalizedString(@"Send", nil)];
+                 [alert addButtonWithTitle:NSLocalizedString(@"Don't send", nil)];
+                 [alert setAlertStyle:NSWarningAlertStyle];
 
-               switch ([alert runModal]) {
-               case NSAlertFirstButtonReturn:
-                 [MSCrashes notifyWithUserConfirmation:MSUserConfirmationAlways];
-                 break;
-               case NSAlertSecondButtonReturn:
-                 [MSCrashes notifyWithUserConfirmation:MSUserConfirmationSend];
-                 break;
-               case NSAlertThirdButtonReturn:
-                 [MSCrashes notifyWithUserConfirmation:MSUserConfirmationDontSend];
-                 break;
-               default:
-                 break;
-               }
+                 switch ([alert runModal]) {
+                 case NSAlertFirstButtonReturn:
+                   [MSACCrashes notifyWithUserConfirmation:MSACUserConfirmationAlways];
+                   break;
+                 case NSAlertSecondButtonReturn:
+                   [MSACCrashes notifyWithUserConfirmation:MSACUserConfirmationSend];
+                   break;
+                 case NSAlertThirdButtonReturn:
+                   [MSACCrashes notifyWithUserConfirmation:MSACUserConfirmationDontSend];
+                   break;
+                 default:
+                   break;
+                 }
 
-               return YES;
-             })];
+                 return YES;
+               })];
 
   // Enable catching uncaught exceptions thrown on the main thread.
   [[NSUserDefaults standardUserDefaults] registerDefaults:@{@"NSApplicationCrashOnExceptions" : @YES}];
 }
 
-- (void)setupPush {
-  [MSPush setDelegate:self];
-  [NSUserNotificationCenter defaultUserNotificationCenter].delegate = self;
-}
+#pragma mark - MSACCrashesDelegate
 
-#pragma mark - MSCrashesDelegate
-
-- (BOOL)crashes:(MSCrashes *)crashes shouldProcessErrorReport:(MSErrorReport *)errorReport {
+- (BOOL)crashes:(nonnull MSACCrashes *)crashes shouldProcessErrorReport:(nonnull MSACErrorReport *)errorReport {
   NSLog(@"%@ Should process error report with: %@", kMSLogTag, errorReport.exceptionReason);
   return YES;
 }
 
-- (void)crashes:(MSCrashes *)crashes willSendErrorReport:(MSErrorReport *)errorReport {
+- (void)crashes:(nonnull MSACCrashes *)crashes willSendErrorReport:(nonnull MSACErrorReport *)errorReport {
   NSLog(@"%@ Will send error report with: %@", kMSLogTag, errorReport.exceptionReason);
 }
 
-- (void)crashes:(MSCrashes *)crashes didSucceedSendingErrorReport:(MSErrorReport *)errorReport {
+- (void)crashes:(nonnull MSACCrashes *)crashes didSucceedSendingErrorReport:(nonnull MSACErrorReport *)errorReport {
   NSLog(@"%@ Did succeed error report sending with: %@", kMSLogTag, errorReport.exceptionReason);
 }
 
-- (void)crashes:(MSCrashes *)crashes didFailSendingErrorReport:(MSErrorReport *)errorReport withError:(NSError *)error {
+- (void)crashes:(nonnull MSACCrashes *)crashes
+    didFailSendingErrorReport:(nonnull MSACErrorReport *)errorReport
+                    withError:(nullable NSError *)error {
   NSLog(@"%@ Did fail sending report with: %@, and error: %@", kMSLogTag, errorReport.exceptionReason, error.localizedDescription);
 }
 
-- (NSArray<MSErrorAttachmentLog *> *)attachmentsWithCrashes:(MSCrashes *)crashes forErrorReport:(MSErrorReport *)errorReport {
+- (NSArray<MSACErrorAttachmentLog *> *)attachmentsWithCrashes:(MSACCrashes *)crashes forErrorReport:(MSACErrorReport *)errorReport {
   NSMutableArray *attachments = [[NSMutableArray alloc] init];
 
   // Text attachment.
   NSString *text = [[NSUserDefaults standardUserDefaults] objectForKey:@"textAttachment"];
   if (text != nil && text.length > 0) {
-    MSErrorAttachmentLog *textAttachment = [MSErrorAttachmentLog attachmentWithText:text filename:@"user.log"];
+    MSACErrorAttachmentLog *textAttachment = [MSACErrorAttachmentLog attachmentWithText:text filename:@"user.log"];
     [attachments addObject:textAttachment];
   }
 
@@ -199,9 +195,9 @@ enum StartupMode { appCenter, oneCollector, both, none, skip };
           UTTypeCreatePreferredIdentifierForTag(kUTTagClassFilenameExtension, (__bridge CFStringRef)[referenceUrl pathExtension], nil);
       NSString *MIMEType = (__bridge_transfer NSString *)UTTypeCopyPreferredTagWithClass(UTI, kUTTagClassMIMEType);
       CFRelease(UTI);
-      MSErrorAttachmentLog *binaryAttachment = [MSErrorAttachmentLog attachmentWithBinary:data
-                                                                                 filename:referenceUrl.lastPathComponent
-                                                                              contentType:MIMEType];
+      MSACErrorAttachmentLog *binaryAttachment = [MSACErrorAttachmentLog attachmentWithBinary:data
+                                                                                     filename:referenceUrl.lastPathComponent
+                                                                                  contentType:MIMEType];
       [attachments addObject:binaryAttachment];
       NSLog(@"Add binary attachment with %tu bytes", [data length]);
     } else {
@@ -209,51 +205,6 @@ enum StartupMode { appCenter, oneCollector, both, none, skip };
     }
   }
   return attachments;
-}
-
-#pragma mark - MSPushDelegate
-
-- (void)application:(NSApplication *)application didRegisterForRemoteNotificationsWithDeviceToken:(NSData *)deviceToken {
-  NSLog(@"%@ Did register for remote notifications with device token.", kMSLogTag);
-}
-
-- (void)application:(NSApplication *)application didFailToRegisterForRemoteNotificationsWithError:(nonnull NSError *)error {
-  NSLog(@"%@ Did fail to register for remote notifications with error %@.", kMSLogTag, [error localizedDescription]);
-}
-
-- (void)application:(NSApplication *)application didReceiveRemoteNotification:(NSDictionary<NSString *, id> *)userInfo {
-  NSLog(@"%@ Did receive remote notification", kMSLogTag);
-}
-
-- (void)userNotificationCenter:(NSUserNotificationCenter *)center didActivateNotification:(NSUserNotification *)notification {
-  NSLog(@"%@ Did receive user notification", kMSLogTag);
-}
-
-- (void)push:(MSPush *)push didReceivePushNotification:(MSPushNotification *)pushNotification {
-
-  // Bring any window to foreground if it was miniaturized.
-  for (NSWindow *window in [NSApp windows]) {
-    if ([window isMiniaturized]) {
-      [window deminiaturize:self];
-      break;
-    }
-  }
-
-  // Show alert for the notification.
-  NSString *title = pushNotification.title ?: @"";
-  NSString *message = pushNotification.message;
-  NSMutableString *customData = nil;
-  for (NSString *key in pushNotification.customData) {
-    ([customData length] == 0) ? customData = [NSMutableString new] : [customData appendString:@", "];
-    [customData appendFormat:@"%@: %@", key, [pushNotification.customData objectForKey:key]];
-  }
-  message = [NSString
-      stringWithFormat:@"%@%@%@", (message ? message : @""), (message && customData ? @"\n" : @""), (customData ? customData : @"")];
-  NSAlert *alert = [[NSAlert alloc] init];
-  [alert setMessageText:title];
-  [alert setInformativeText:message];
-  [alert addButtonWithTitle:NSLocalizedString(@"OK", nil)];
-  [alert runModal];
 }
 
 #pragma mark - CLLocationManagerDelegate
@@ -267,7 +218,7 @@ enum StartupMode { appCenter, oneCollector, both, none, skip };
                    if (placemarks.count == 0 || error)
                      return;
                    CLPlacemark *placemark = [placemarks firstObject];
-                   [MSAppCenter setCountryCode:placemark.ISOcountryCode];
+                   [MSACAppCenter setCountryCode:placemark.ISOcountryCode];
                  }];
 }
 

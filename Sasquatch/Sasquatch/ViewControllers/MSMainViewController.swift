@@ -24,6 +24,7 @@ class MSMainViewController: UITableViewController, AppCenterProtocol {
   }
 
   @IBOutlet weak var appCenterEnabledSwitch: UISwitch!
+  @IBOutlet weak var networkRequestsAllowedSwitch: UISwitch!
   @IBOutlet weak var startupModeField: UITextField!
   @IBOutlet weak var installId: UILabel!
   @IBOutlet weak var appSecret: UILabel!
@@ -80,8 +81,8 @@ class MSMainViewController: UITableViewController, AppCenterProtocol {
     
     if let msaUserId = UserDefaults.standard.string(forKey: kMSATokenKey),
         let refreshToken = UserDefaults.standard.string(forKey: kMSARefreshTokenKey) {
-        let provider = MSAnalyticsAuthenticationProvider(authenticationType: .msaCompact, ticketKey: msaUserId, delegate: MSAAnalyticsAuthenticationProvider.getInstance(refreshToken, self))
-        MSAnalyticsTransmissionTarget.addAuthenticationProvider(authenticationProvider:provider)
+        let provider = AnalyticsAuthenticationProvider(authenticationType: .msaCompact, ticketKey: msaUserId, delegate: MSAAnalyticsAuthenticationProvider.getInstance(refreshToken, self))
+        AnalyticsTransmissionTarget.addAuthenticationProvider(authenticationProvider:provider)
     }
 
     // Storage size section.
@@ -136,10 +137,10 @@ class MSMainViewController: UITableViewController, AppCenterProtocol {
 
   func updateViewState() {
     self.appCenterEnabledSwitch.isOn = appCenter.isAppCenterEnabled()
-    self.pushEnabledSwitch.isOn = appCenter.isPushEnabled()
+    self.networkRequestsAllowedSwitch.isOn = appCenter.isNetworkRequestsAllowed()
 
     #if ACTIVE_COMPILATION_CONDITION_PUPPET
-    self.logFilterSwitch.isOn = MSEventFilter.isEnabled()
+    self.logFilterSwitch.isOn = MSEventFilter.enabled
     #else
     self.logFilterSwitch.isOn = false
     let cell = self.logFilterSwitch.superview!.superview as! UITableViewCell
@@ -152,28 +153,24 @@ class MSMainViewController: UITableViewController, AppCenterProtocol {
     appCenter.setAppCenterEnabled(sender.isOn)
     updateViewState()
   }
-
-  @IBAction func pushSwitchStateUpdated(_ sender: UISwitch) {
-#if !targetEnvironment(macCatalyst)
-    appCenter.setPushEnabled(sender.isOn)
-#else
-    showAlert(message: "AppCenter Push is not supported by Mac Catalyst")
-#endif
-    updateViewState()
-  }
     
   @IBAction func overrideCountryCode(_ sender: UIButton) {
     let appDelegate: AppDelegate? = UIApplication.shared.delegate as? AppDelegate
     appDelegate?.requestLocation()
   }
 
+  @IBAction func networkRequestsAllowedChanged(_ sender: UISwitch) {
+    appCenter.setNetworkRequestsAllowed(sender.isOn)
+    updateViewState()
+  }
+
   @IBAction func logFilterSwitchChanged(_ sender: UISwitch) {
     #if ACTIVE_COMPILATION_CONDITION_PUPPET
     if !eventFilterStarted {
-      MSAppCenter.startService(MSEventFilter.self)
+      AppCenter.startService(MSEventFilter.self)
       eventFilterStarted = true
     }
-    MSEventFilter.setEnabled(sender.isOn)
+    MSEventFilter.enabled = sender.isOn
     updateViewState()
     #endif
   }

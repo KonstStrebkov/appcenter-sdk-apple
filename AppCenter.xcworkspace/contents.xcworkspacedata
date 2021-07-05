@@ -5,6 +5,9 @@
       location = "group:appcenter-post-clone.sh">
    </FileRef>
    <FileRef
+      location = "group:Package@swift-5.3.swift">
+   </FileRef>
+   <FileRef
       location = "group:AppCenter.podspec">
    </FileRef>
    <FileRef
@@ -44,6 +47,9 @@
          location = "group:Global.xcconfig">
       </FileRef>
       <FileRef
+         location = "group:iOS Universal.xcconfig">
+      </FileRef>
+      <FileRef
          location = "group:iOS.xcconfig">
       </FileRef>
       <FileRef
@@ -62,6 +68,9 @@
          location = "group:Tests.xcconfig">
       </FileRef>
       <FileRef
+         location = "group:tvOS Universal.xcconfig">
+      </FileRef>
+      <FileRef
          location = "group:tvOS.xcconfig">
       </FileRef>
       <FileRef
@@ -70,27 +79,45 @@
       <FileRef
          location = "group:watchOS.xcconfig">
       </FileRef>
+      <FileRef
+         location = "group:XCFramework.xcconfig">
+      </FileRef>
    </Group>
    <Group
       location = "group:Scripts"
       name = "Scripts">
       <FileRef
-         location = "group:build-docs.sh">
+         location = "group:build-framework.sh">
       </FileRef>
       <FileRef
-         location = "group:build-ios-framework.sh">
+         location = "group:combine-frameworks.sh">
       </FileRef>
       <FileRef
-         location = "group:build-macos-framework.sh">
+         location = "group:combine-libraries.sh">
       </FileRef>
       <FileRef
-         location = "group:build-maccatalyst-framework.sh">
+         location = "group:combine-xcframework.sh">
       </FileRef>
       <FileRef
-         location = "group:build-tvos-framework.sh">
+         location = "group:copy-products.sh">
       </FileRef>
       <FileRef
-         location = "group:build-xcframework.sh">
+         location = "group:create-archive.sh">
+      </FileRef>
+      <FileRef
+         location = "group:framework-version.sh">
+      </FileRef>
+      <FileRef
+         location = "group:generate-documentation.sh">
+      </FileRef>
+      <FileRef
+         location = "group:get-release-notes.sh">
+      </FileRef>
+      <FileRef
+         location = "group:sort-schemes.sh">
+      </FileRef>
+      <FileRef
+         location = "group:update-version.sh">
       </FileRef>
       <FileRef
          location = "group:VerifyNoBuildSettings.swift">
@@ -107,9 +134,6 @@
    </FileRef>
    <FileRef
       location = "group:AppCenterDistribute/AppCenterDistribute.xcodeproj">
-   </FileRef>
-   <FileRef
-      location = "group:AppCenterPush/AppCenterPush.xcodeproj">
    </FileRef>
    <FileRef
       location = "group:CrashLib/CrashLib.xcodeproj">

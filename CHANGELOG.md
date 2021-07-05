@@ -1,5 +1,111 @@
 # App Center SDK for iOS, macOS and tvOS Change Log
 
+## Version 4.2.0
+
+### App Center
+
+* **[Feature]** Add a `AppCenter.networkRequestsAllowed` API to block any network requests without disabling the SDK.
+* **[Fix]** Fix umbrella header warnings in Xcode 12.5.
+
+### App Center Crashes
+
+* **[Fix]** Fix error nullability in crashes delegate.
+* **[Fix]** Merge the device information from the crash report with the SDK's device information in order to fix some time sensitive cases where the reported application information was incorrect.
+* **[Improvement]** Update PLCrashReporter to 1.9.0.
+
+### App Center Distribute
+
+* **[Fix]** Fix linking framework `AuthenticationServices`.
+* **[Fix]** Fix a warning in Distribute module that prevented using SDK as a source code on Xcode 12.5.
+
+___
+
+## Version 4.1.1
+
+### App Center
+
+* **[Improvement]** Use ASWebAuthenticationSession for authentication on iOS 12 or later.
+* **[Fix]** Fix Objective-C properties attributes warnings in MRC projects.
+
+### App Center Distribute
+
+* **[Fix]** Fix `kMSACUpdateTokenRequestIdKey` never gets removed.
+
+___
+
+## Version 4.1.0
+
+### App Center
+
+* **[Fix]** Fix `double-quoted` warnings in Xcode 12.
+* **[Fix]** Fix a crash when SQLite returns zero for `page_size`.
+* **[Feature]** Use XCFramework format for the binary distribution via CocoaPods. CocoaPods version 1.10+ is a requirement now.
+
+### App Center Crashes
+
+* **[Fix]** Fix nullability for attachments methods in crashes delegate. `nil` is valid return value now (4.0.0 regression).
+
+### App Center Distribute
+
+* **[Feature]** Add `distributeNoReleaseAvailable` callback to Distribute delegate.
+* **[Feature]** Add `distributeWillExitApp` callback to Distribute delegate.
+* **[Feature]** Add the Distribute module to Swift Package Manager. Please note that due to additional resources bundle, it requires Swift 5.3 (Xcode 12 and higher).
+
+___
+
+## Version 4.0.0
+
+### App Center
+
+* **[Feature]** Add support for Apple Silicon to existing macOS modules (`arm64` simulators for iOS and tvOS are not supported via CocoaPods).
+* **[Feature]** **[Breaking change]** Make SDK API more Swift-friendly. You can find the API updates in the [swift migration table](https://docs.microsoft.com/appcenter/sdk/getting-started/migration/apple-sdk-update#swift-api-changes).
+* **[Breaking change]** The App Center prefix `MS` in Objective-C is consolidated to `MSAC` for collision prevention. Please follow the [migration guide](https://docs.microsoft.com/appcenter/sdk/getting-started/migration/apple-sdk-update) for adopting the new naming.
+* **[Fix]** Fix `NSInvalidArgumentException` when using non-string object as a key in `NSUserDefaults`.
+* **[Fix]** Fix `NSDateFormatter` initialization in a concurrent environment.
+
+### App Center Crashes
+
+* **[Improvement]** Update PLCrashReporter to 1.8.0.
+
+### App Center Push
+
+App Center Push has been removed from the SDK and will be [retired on December 31st, 2020](https://devblogs.microsoft.com/appcenter/migrating-off-app-center-push/). 
+As an alternative to App Center Push, we recommend you migrate to [Azure Notification Hubs](https://docs.microsoft.com/en-us/azure/notification-hubs/notification-hubs-push-notification-overview) by following the [Push Migration Guide](https://docs.microsoft.com/en-us/appcenter/migration/push/).
+
+___
+
+## Version 3.3.4
+
+### App Center Distribute
+
+* **[Fix]** Fix manually checking for updates before `applicationDidBecomeActive` event.
+
+___
+
+## Version 3.3.3
+
+### App Center
+
+* **[Fix]** Fix compatibility with Xcode 12 beta when integrating SDK from sources.
+
+### App Center Analytics
+
+* **[Fix]** Fix processing logs (e.g., events) emitted from the `applicationWillTerminate` application delegate method.
+
+### App Center Crashes
+
+* **[Improvement]** Update PLCrashReporter to 1.7.2.
+
+___
+
+## Version 3.3.2
+
+### App Center Distribute
+
+* **[Fix]** Obfuscate app secret value that appears as URI part in verbose logs when getting release updates info.
+
+___
+
 ## Version 3.3.1
 
 ### App Center Crashes
